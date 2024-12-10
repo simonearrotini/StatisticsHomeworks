@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discrete Distribution Simulation</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        label {
+            display: block;
+            margin: 10px 0 5px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: block;
+            margin: 20px auto;
+            width: 200px;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        canvas {
+            max-width: 100%;
+            height: auto;
+            margin-top: 20px;
+        }
+
+        .results {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 1.2em;
+        }
+
+        #meanDisplay, #varianceDisplay, #theoreticalMeanDisplay, #theoreticalVarianceDisplay {
+            background-color: #e2f0d9;
+            color: #3c763d;
+            border: 1px solid #d6e9c6;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 1.5em;
+            font-weight: bold;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Discrete Distribution Simulation</h1>
+
+        <label for="numIntervals">Number of Intervals:</label>
+        <input type="number" id="numIntervals" value="4" min="1" />
+
+        <button id="generateProbabilities">Generate Probabilities</button>
+
+        <div class="probabilities"></div>
+
+        <canvas id="empiricalChart" width="600" height="400"></canvas>
+        <canvas id="theoreticalChart" width="600" height="400"></canvas>
+
+        <div id="meanDisplay"></div>
+        <div id="varianceDisplay"></div>
+        <div id="theoreticalMeanDisplay"></div>
+        <div id="theoreticalVarianceDisplay"></div>
+    </div>
+
+    <script>
+        'use strict'; // Abilita la modalità strict come richiesto
+    
+        class DistributionSimulation {
+            constructor() {
+                this.empiricalChart = null;
+                this.theoreticalChart = null;
+                this.init();
+            }
+    
+            init() {
+                // Aggiunge un event listener al pulsante per generare le probabilità
+                const generateButton = document.getElementById("generateProbabilities");
+                generateButton.addEventListener('click', this.generate.bind(this));
+            }
+    
+            generate() {
+                // Ottiene il numero di intervalli inserito dall'utente
+                const numIntervals = parseInt(document.getElementById('numIntervals').value, 10);
+                const probabilitiesDiv = document.querySelector('.probabilities');
+                probabilitiesDiv.innerHTML = ''; // Pulisce il contenuto precedente
+    
+                // Genera numeri casuali e calcola le probabilità normalizzate
+                const randomNumbers = Array.from({ length: numIntervals }, () => Math.random());
+                const sum = randomNumbers.reduce((a, b) => a + b, 0);
+                const probabilities = randomNumbers.map(n => n / sum);
+    
+                // Crea un modulo per l'inserimento delle probabilità
+                const form = document.createElement('form');
+                form.classList.add('probabilities-form');
+                const invalidMessage = document.createElement('p');
+                invalidMessage.id = 'invalidMessage';
+                invalidMessage.innerHTML = '';
+                form.appendChild(invalidMessage);
+    
+                // Crea dinamicamente i campi di input per le probabilità
+                for (let i = 0; i < numIntervals; i++) {
+                    const label = document.createElement('label');
+                    label.innerHTML = `p${i + 1}: `;
+    
+                    const input = document.createElement('input');
+                    input.type = 'number';
+                    input.step = 'any';
+                    input.value = probabilities[i].toFixed(3);
+                    input.min = '0';
+                    input.max = '1';
+                    input.addEventListener('input', this.checkSum.bind(this, form, numIntervals)); // Controlla la somma delle probabilità
+                    label.appendChild(input);
+                    form.appendChild(label);
+                }
+    
+                // Crea il campo per il numero di tentativi
+                const attemptsLabel = document.createElement('label');
+                attemptsLabel.innerHTML = '<strong># attempts: </strong>';
+                const attemptsInput = document.createElement('input');
+                attemptsInput.type = 'number';
+                attemptsInput.value = '1000';
+                attemptsLabel.appendChild(attemptsInput);
+                form.appendChild(attemptsLabel);
+    
+                // Crea il bottone per generare gli istogrammi
+                const generateHistogramButton = document.createElement('button');
+                generateHistogramButton.type = 'button';
+                generateHistogramButton.id = 'generateHistogram';
+                generateHistogramButton.innerHTML = 'Generate Histograms';
+                generateHistogramButton.disabled = false;
+                form.appendChild(generateHistogramButton);
+                probabilitiesDiv.appendChild(form);
+    
+                // Aggiunge un gestore di eventi per il bottone "Generate Histograms"
+                generateHistogramButton.addEventListener('click', () => {
+                    this.generateHistograms(parseInt(attemptsInput.value, 10), probabilities);
+                });
+    
+                // Inizializza il controllo sulla somma delle probabilità
+                this.checkSum(form, numIntervals);
+            }
+    
+            checkSum(form, numIntervals) {
+                // Controlla che la somma delle probabilità sia valida
+                const inputs = form.querySelectorAll('input[type="number"]');
+                let total = 0;
+                let valid = true;
+    
+                for (let i = 0; i < numIntervals; i++) {
+                    const val = parseFloat(inputs[i].value);
+                    if (isNaN(val) || val < 0 || val > 1) {
+                        valid = false;
+                        break;
+                    }
+                    total += val;
+                }
+    
+                const invalidMessage = document.getElementById('invalidMessage');
+                if (!valid || Math.abs(total - 1) > 0.0001) {
+                    invalidMessage.innerHTML = 'Invalid values';
+                    form.querySelector('button').disabled = true;
+                } else {
+                    invalidMessage.innerHTML = '';
+                    form.querySelector('button').disabled = false;
+                }
+            }
+    
+            generateHistograms(attempts, probabilities) {
+                // Verifica che il numero di tentativi sia valido
+                if (isNaN(attempts) || attempts <= 0) {
+                    alert('Enter a valid number of attempts.');
+                    return;
+                }
+    
+                const numIntervals = probabilities.length;
+                const theoreticalMean = probabilities.reduce((sum, p, i) => sum + (i + 1) * p, 0);
+                const theoreticalVariance = probabilities.reduce((sum, p, i) => sum + p * Math.pow((i + 1) - theoreticalMean, 2), 0);
+    
+                // Calcola la distribuzione cumulativa delle probabilità
+                const cumulativeProbs = probabilities.reduce((arr, p, i) => [...arr, (arr[i - 1] || 0) + p], []);
+                const counts = Array(numIntervals).fill(0); // Conta le frequenze per la distribuzione empirica
+                let mean = 0, deviance = 0;
+    
+                // Simula il processo di distribuzione per il numero di tentativi indicato
+                for (let i = 0; i < attempts; i++) {
+                    const rand = Math.random();
+                    for (let j = 0; j < cumulativeProbs.length; j++) {
+                        if (rand <= cumulativeProbs[j]) {
+                            counts[j]++;
+                            const level = j + 1;
+                            const k = i + 1;
+                            const delta = level - mean;
+                            mean += delta / k;
+                            deviance += delta * (level - mean);
+                            break;
+                        }
+                    }
+                }
+    
+                // Calcola la varianza empirica
+                const variance = deviance / (attempts - 1);
+                const labels = probabilities.map((_, i) => `p${i + 1}`);
+                const theoreticalCounts = probabilities.map(p => p * attempts);
+    
+                // Distrugge gli istogrammi precedenti se esistono
+                if (this.empiricalChart) this.empiricalChart.destroy();
+                if (this.theoreticalChart) this.theoreticalChart.destroy();
+    
+                // Crea l'istogramma empirico
+                const empiricalCtx = document.getElementById('empiricalChart').getContext('2d');
+                this.empiricalChart = new Chart(empiricalCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Empirical Distribution',
+                            data: counts,
+                            backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 1
+                        }]
+                    }
+                });
+    
+                // Crea l'istogramma teorico
+                const theoreticalCtx = document.getElementById('theoreticalChart').getContext('2d');
+                this.theoreticalChart = new Chart(theoreticalCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Theoretical Distribution',
+                            data: theoreticalCounts,
+                            backgroundColor: 'rgba(153, 102, 255, 0.6)',
+                            borderColor: 'rgba(153, 102, 255, 1)',
+                            borderWidth: 1
+                        }]
+                    }
+                });
+    
+                // Visualizza le statistiche alla fine
+                document.getElementById('meanDisplay').innerHTML = `
+                    <strong>Empirical Mean:</strong> ${mean.toFixed(2)}
+                `;
+                document.getElementById('varianceDisplay').innerHTML = `
+                    <strong>Empirical Variance:</strong> ${variance.toFixed(2)}
+                `;
+                document.getElementById('theoreticalMeanDisplay').innerHTML = `
+                    <strong>Theoretical Mean:</strong> ${theoreticalMean.toFixed(2)}
+                `;
+                document.getElementById('theoreticalVarianceDisplay').innerHTML = `
+                    <strong>Theoretical Variance:</strong> ${theoreticalVariance.toFixed(2)}
+                `;
+            }
+        }
+    
+        // Inizializza la simulazione
+        new DistributionSimulation();
+    </script>    
+</body>
+</html>

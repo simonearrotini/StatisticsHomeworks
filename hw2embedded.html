@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Penetration Simulation</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        label {
+            display: block;
+            margin: 10px 0 5px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: block;
+            margin: 20px auto;
+            width: 200px;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        .chart-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+            gap: 20px;
+        }
+
+        canvas {
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 100%;
+        }
+
+        #attackersChart {
+            max-width: 800px;
+        }
+
+        #horizontalHistogram {
+            max-width: 800px;
+        }
+
+        #distributionChart {
+            max-width: 800px;
+        }
+
+        #meanDisplay, #varianceDisplay, #averageSuccessLabel {
+            background-color: #e2f0d9;
+            color: #3c763d;
+            border: 1px solid #d6e9c6;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 1.5em;
+            font-weight: bold;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .histogram-label {
+            text-align: center;
+            font-weight: bold;
+            margin-top: -10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Server Penetration Simulation</h1>
+
+        <label for="numServers">Number of Servers (n):</label>
+        <input type="number" id="numServers" value="15" min="1" />
+
+        <label for="numAttackers">Number of Attackers (m):</label>
+        <input type="number" id="numAttackers" value="5" min="1" />
+
+        <label for="jumpProb">Jump Probability (+1 or -1) (p):</label>
+        <input type="number" id="jumpProb" value="0.5" step="0.01" min="0" max="1" />
+
+        <button id="runSimulation">Run Simulation</button>
+
+        <div class="chart-container">
+            <canvas id="attackersChart"></canvas>
+            <canvas id="horizontalHistogram"></canvas>
+            <canvas id="distributionChart"></canvas>
+            <button id="advanceTime" disabled>Next Step</button>
+            <canvas id="frequencyChartAbsolute"></canvas>
+            <canvas id="frequencyChartRelative"></canvas>
+        </div>
+
+        <div id="averageSuccessLabel">Average Successes: 0</div>
+        <div id="meanDisplay">Mean: 0</div>
+        <div id="varianceDisplay">Variance: 0</div>
+    </div>
+
+    <script>
+        "use strict"; // Abilita la modalità strict come richiesto
+
+        // Classe per la simulazione del comportamento degli attaccanti
+        class ServerSimulation {
+            static random() {
+                return Math.random();  // Genera un numero casuale tra 0 e 1
+            }
+
+            // Funzione per determinare se un attaccante salta +1 o -1
+            static jump(p_j) {
+                return ServerSimulation.random() < p_j ? 1 : -1; // Salto positivo con probabilità p_j, altrimenti negativo
+            }
+
+            // Funzione per simulare i movimenti di un singolo attaccante
+            static simulateAttacker(n, p_j) {
+                let y = 0;
+                let yHistory = [y]; // Memorizza la storia dei movimenti dell'attaccante
+
+                for (let i = 0; i < n; i++) {
+                    y += ServerSimulation.jump(p_j); // Ogni passo è un salto
+                    yHistory.push(y); // Aggiunge il nuovo valore di y alla cronologia
+                }
+
+                return yHistory;
+            }
+
+            // Simula m attaccanti su n server
+            static simulateAttackers(n, m, p_j) {
+                return Array.from({ length: m }, () => ServerSimulation.simulateAttacker(n, p_j));
+            }
+
+            // Calcola media e varianza ad ogni passo
+            static calculateMeanVariance(attackersResults) {
+                // Somma le posizioni di tutti gli attaccanti a ogni passo
+                const totalSteps = attackersResults[0].length; // Numero di passi (colonne)
+                const totalAttackers = attackersResults.length; // Numero di attaccanti
+
+                // Calcola la media totale per ogni passo
+                const meanTotal = [];
+                const varianceTotal = [];
+
+                for (let step = 0; step < totalSteps; step++) {
+                    // Somma i valori di tutti gli attaccanti per il passo corrente
+                    const stepValues = attackersResults.map(attacker => attacker[step]);
+                    const totalSum = stepValues.reduce((sum, val) => sum + val, 0);
+                    const mean = totalSum / (totalAttackers);
+
+                    // Calcola la varianza per il passo corrente
+                    const variance = stepValues.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / totalAttackers;
+
+                    meanTotal.push(mean);
+                    varianceTotal.push(variance);
+                }
+
+                return { meanTotal, varianceTotal };
+            }
+
+            // Calcola la distribuzione di frequenza ad un passo specifico
+            static calculateDistribution(attackersResults, step) {
+                const stepResults = attackersResults.map(result => result[step] || 0); // Ottiene i valori al passo selezionato
+                const distributionData = [...new Set(stepResults)].map(val => ({
+                    value: val,
+                    count: stepResults.filter(v => v === val).length
+                }));
+                return distributionData;
+            }
+        }
+
+        let attackersChart, distributionChart, attackersResults, frequencyChartAbsolute, frequencyChartRelative, colors;
+        let currentStep = 0;
+        const maxSteps = parseInt(document.getElementById('numServers').value);
+
+        // Funzione per disegnare il grafico degli attaccanti
+        function drawAttackersChart(attackersResults, colors) {
+            const ctx = document.getElementById('attackersChart').getContext('2d');
+            if (attackersChart) {
+                attackersChart.destroy(); // Cancella il grafico esistente se esiste già
+            }
+            attackersChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({ length: attackersResults[0].length - 1 }, (_, i) => i + 1),
+                    datasets: attackersResults.map((result, index) => ({
+                        label: `Attacker ${index + 1}`,
+                        data: result,
+                        borderColor: colors[index],
+                        fill: false,
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: true, position: 'top' },
+                        title: { display: true, text: 'Attackers Penetration Results' }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Steps' } },
+                        y: { title: { display: true, text: 'Position (y)' }, beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        // Funzione per disegnare l'istogramma orizzontale degli attaccanti
+        function drawHorizontalHistogram(ctx, attackersResults, canvasWidth, canvasHeight, colors, step) {
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+            const attackerCount = attackersResults.length;
+            const barHeight = canvasHeight / attackerCount - 5;
+            const scaleFactor = canvasWidth / Math.max(...attackersResults.map(a => a.slice(0, step).filter(x => x > 0).length));
+
+            attackersResults.forEach((results, index) => {
+                const successes = results.slice(0, step).filter(x => x > 0).length; // Conta i successi
+                const barWidth = successes * scaleFactor;
+                const y = index * (barHeight + 5);
+
+                ctx.fillStyle = colors[index];
+                ctx.fillRect(0, y, barWidth, barHeight);
+                ctx.strokeRect(0, y, barWidth, barHeight);
+
+                ctx.fillStyle = '#000';
+                ctx.textAlign = 'right';
+                ctx.font = '12px Arial';
+                ctx.fillText(successes, barWidth - 5, y + barHeight / 2 + 5); // Scrive il numero di successi sulla barra
+                ctx.textAlign = 'left';
+                ctx.fillText(` ${index + 1}`, -45, y + barHeight / 2 + 5); // Scrive il numero dell'attaccante
+            });
+        }
+
+        // Funzione per disegnare il grafico della distribuzione degli attaccanti
+        function drawDistributionChart(attackersResults, step, colors) {
+            const ctx = document.getElementById('distributionChart').getContext('2d');
+            const distributionData = ServerSimulation.calculateDistribution(attackersResults, step);
+
+            if (distributionChart) {
+                distributionChart.destroy(); // Elimina il grafico precedente
+            }
+
+            distributionChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: distributionData.map(d => d.value),
+                    datasets: [{
+                        label: 'Distribution at Step ' + step,
+                        data: distributionData.map(d => d.count),
+                        backgroundColor: colors
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false },
+                        title: { display: true, text: `Distribution at Step ${step}` }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Value' } },
+                        y: { title: { display: true, text: 'Frequency' }, beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        // Funzione per disegnare il grafico delle due frequenze
+        function drawFrequencyChart(attackersResults, step) {
+            const ctxAbsolute = document.getElementById('frequencyChartAbsolute').getContext('2d');
+            const ctxRelative = document.getElementById('frequencyChartRelative').getContext('2d');
+            
+            const distributionData = ServerSimulation.calculateDistribution(attackersResults, step);
+
+            const totalCounts = distributionData.reduce((sum, d) => sum + d.count, 0);
+
+            // Frequenza assoluta
+            const absoluteFrequencies = distributionData.map(d => d.count);
+
+            // Frequenza relativa
+            const relativeFrequencies = distributionData.map(d => d.count / totalCounts);
+
+            // Cancella i grafici precedenti, se esistono
+            if (frequencyChartAbsolute) {
+                frequencyChartAbsolute.destroy();
+            }
+            if (frequencyChartRelative) {
+                frequencyChartRelative.destroy();
+            }
+
+            // Grafico per frequenza assoluta
+            frequencyChartAbsolute = new Chart(ctxAbsolute, {
+                type: 'line',
+                data: {
+                    labels: distributionData.map(d => d.value),
+                    datasets: [{
+                        label: 'Absolute Frequency',
+                        data: absoluteFrequencies,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        fill: false,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: true, position: 'top' },
+                        title: { display: true, text: `Absolute Frequency at Step ${step}` }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Value' } },
+                        y: { 
+                            title: { display: true, text: 'Absolute Frequency' }, 
+                            beginAtZero: true,
+                            position: 'left'
+                        }
+                    }
+                }
+            });
+
+            // Grafico per frequenza relativa
+            frequencyChartRelative = new Chart(ctxRelative, {
+                type: 'line',
+                data: {
+                    labels: distributionData.map(d => d.value),
+                    datasets: [{
+                        label: 'Relative Frequency',
+                        data: relativeFrequencies,
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        fill: false,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: true, position: 'top' },
+                        title: { display: true, text: `Relative Frequency at Step ${step}` }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Value' } },
+                        y: { 
+                            title: { display: true, text: 'Relative Frequency' }, 
+                            beginAtZero: true,
+                            position: 'left'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Funzione per validare gli input dell'utente
+        function validateInputs(n, m, p_j) {
+            if (n < 1 || m < 1 || p_j < 0 || p_j > 1) {
+                alert("The values entered are not valid. Ensure all values are positive and the probability is between 0 and 1.");
+                return false;
+            }
+            return true;
+        }
+
+        // Funzione per avviare la simulazione
+        function runSimulation() {
+            const n = parseInt(document.getElementById('numServers').value);
+            const m = parseInt(document.getElementById('numAttackers').value);
+            const p_j = parseFloat(document.getElementById('jumpProb').value);
+
+            if (!validateInputs(n, m, p_j)) return;
+
+            attackersResults = ServerSimulation.simulateAttackers(n, m, p_j);
+            colors = attackersResults.map(() => `rgba(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255}, 0.8)`);
+
+            currentStep = 1;
+
+            drawAttackersChart(attackersResults, colors);
+
+            const histogramCanvas = document.getElementById('horizontalHistogram');
+            histogramCanvas.height = Math.max(150, 30 * m);
+            const histogramCtx = histogramCanvas.getContext('2d');
+            drawHorizontalHistogram(histogramCtx, attackersResults, histogramCanvas.width, histogramCanvas.height, colors, currentStep);
+
+            drawFrequencyChart(attackersResults, currentStep);
+
+            const totalSuccesses = attackersResults.flat().filter(x => x > 0).length;
+            const averageSuccesses = totalSuccesses / m;
+            document.getElementById('averageSuccessLabel').textContent = `Average Successes: ${averageSuccesses.toFixed(2)}`;
+
+            const{ meanTotal, varianceTotal } = ServerSimulation.calculateMeanVariance(attackersResults);
+
+            // Mostra media e varianza
+            document.getElementById('meanDisplay').textContent = `Mean: ${meanTotal[currentStep - 1].toFixed(2)}`;
+            document.getElementById('varianceDisplay').textContent = `Variance: ${varianceTotal[currentStep - 1].toFixed(2)}`;
+
+            // Attiva il pulsante "next Step"
+            document.getElementById('advanceTime').disabled = false;
+        }
+
+        // Funzione per aggiornare i grafici allo step successivo
+        function advanceTime() {
+            if (currentStep >= maxSteps) return;
+
+            currentStep++;
+
+            drawAttackersChart(attackersResults, colors);
+
+            const histogramCanvas = document.getElementById('horizontalHistogram');
+            const histogramCtx = histogramCanvas.getContext('2d');
+            drawHorizontalHistogram(histogramCtx, attackersResults, histogramCanvas.width, histogramCanvas.height, colors, currentStep);
+
+            drawDistributionChart(attackersResults, currentStep, colors);
+            drawFrequencyChart(attackersResults, currentStep);
+
+            const{ meanTotal, varianceTotal } = ServerSimulation.calculateMeanVariance(attackersResults);
+
+            // Mostra media e varianza
+            document.getElementById('meanDisplay').textContent = `Mean: ${meanTotal[currentStep - 1].toFixed(2)}`;
+            document.getElementById('varianceDisplay').textContent = `Variance: ${varianceTotal[currentStep - 1].toFixed(2)}`;
+
+        }
+
+        document.getElementById('runSimulation').addEventListener('click', runSimulation);
+        document.getElementById('advanceTime').addEventListener('click', advanceTime);
+    </script>
+</body>
+</html>

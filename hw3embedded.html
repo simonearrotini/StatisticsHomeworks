@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Continuous Time Penetration Simulation</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        label {
+            display: block;
+            margin: 10px 0 5px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: block;
+            margin: 20px auto;
+            width: 200px;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        .chart-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+            gap: 20px;
+        }
+
+        canvas {
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 100%;
+        }
+
+        #meanDisplay, #varianceDisplay, #averageSuccessLabel {
+            background-color: #e2f0d9;
+            color: #3c763d;
+            border: 1px solid #d6e9c6;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 1.5em;
+            font-weight: bold;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Continuous Time Penetration Simulation</h1>
+
+        <label for="timeIntervals">Number of Time Intervals (n):</label>
+        <input type="number" id="timeIntervals" value="1000" min="1" />
+
+        <label for="numAttackers">Number of Attackers (m):</label>
+        <input type="number" id="numAttackers" value="15" min="1" />
+
+        <label for="lambda">Attack Rate (λ):</label>
+        <input type="number" id="lambda" value="0.5" step="0.01" min="0" />
+
+        <button id="runSimulation">Run Simulation</button>
+
+        <div class="chart-container">
+            <canvas id="attackersChart"></canvas>
+            <canvas id="distributionChart"></canvas>
+        </div>
+
+        <div id="averageSuccessLabel"></div>
+        <div id="meanDisplay"></div>
+        <div id="varianceDisplay"></div>
+    </div>
+
+    <script>
+        "use strict"; // Abilita la modalità strict come richiesto
+
+        // Classe per la simulazione del comportamento degli attaccanti
+        class ServerSimulation {
+            static random() {
+                return Math.random(); // Genera un numero casuale tra 0 e 1
+            }
+
+            // Funzione che simula un salto del server (attacco) basato su un valore λ e un intervallo di tempo
+            static jump(lambda, dt) {
+                return ServerSimulation.random() < lambda * dt ? 1 : 0;
+            }
+
+            // Simula il comportamento di un singolo attaccante nel tempo
+            static simulateAttacker(n, lambda) {
+                const dt = 1 / n; // Calcola l'intervallo di tempo
+                let position = 0;
+                const positionHistory = [position]; // Memorizza la posizione nel tempo
+
+                for (let i = 0; i < n; i++) {
+                    position += ServerSimulation.jump(lambda, dt); // Aggiorna la posizione in base all'attacco
+                    positionHistory.push(position); // Memorizza la nuova posizione
+                }
+
+                return positionHistory; // Restituisce la storia delle posizioni
+            }
+
+            // Simula il comportamento di più attaccanti
+            static simulateAttackers(n, m, lambda) {
+                return Array.from({ length: m }, () => ServerSimulation.simulateAttacker(n, lambda)); // Simula m attaccanti
+            }
+        }
+
+        let attackersChart, distributionChart, attackersResults, colors;
+
+        // Disegna il grafico delle posizioni degli attaccanti nel tempo
+        function drawAttackersChart(results, colors) {
+            const ctx = document.getElementById('attackersChart').getContext('2d');
+            if (attackersChart) attackersChart.destroy(); // Distrugge il grafico precedente, se esiste
+
+            // Crea un nuovo grafico delle posizioni nel tempo
+            attackersChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({ length: results[0].length }, (_, i) => i), // Intervallo di tempo
+                    datasets: results.map((result, index) => ({
+                        label: `Attacker ${index + 1}`,
+                        data: result,
+                        borderColor: colors[index],
+                        fill: false,
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: true, position: 'top' },
+                        title: { display: true, text: 'Attackers Continuous Penetration Results' }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Time Interval' } },
+                        y: { title: { display: true, text: 'Position' }, beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        // Disegna il grafico della distribuzione delle posizioni finali degli attaccanti
+        function drawDistributionChart(results) {
+            const ctx = document.getElementById('distributionChart').getContext('2d');
+            if (distributionChart) distributionChart.destroy(); // Elimina il grafico precedente, se esiste
+
+            const finalPositions = results.map(result => result[result.length - 1]); // Estrae le posizioni finali
+            const maxPosition = Math.max(...finalPositions);
+            const bins = Array.from({ length: maxPosition + 1 }, (_, i) => i);
+            const counts = bins.map(bin => finalPositions.filter(pos => pos === bin).length); // Conta la frequenza delle posizioni finali
+
+            // Crea il grafico a barre della distribuzione delle posizioni finali
+            distributionChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: bins,
+                    datasets: [{
+                        label: 'Distribution of Final Positions',
+                        data: counts,
+                        backgroundColor: 'rgba(153, 102, 255, 0.8)',
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: true, position: 'top' },
+                        title: { display: true, text: 'Distribution of Final Positions of Attackers' }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Final Position' } },
+                        y: { title: { display: true, text: 'Count' }, beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        // Calcola media, varianza e successo medio
+        function calculateStats(results, n) {
+            const finalPositions = results.map(result => result[result.length - 1]);
+            const mean = finalPositions.reduce((acc, val) => acc + val, 0) / finalPositions.length; // Calcola la media
+            const variance = finalPositions.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / finalPositions.length; // Calcola la varianza
+            const averageSuccess = (finalPositions.reduce((acc, val) => acc + val, 0) / (n * results.length)) * 100; // Calcola il successo medio
+
+            return { mean, variance, averageSuccess };
+        }
+
+        // Funzione che esegue la simulazione
+        function runSimulation() {
+            const n = parseInt(document.getElementById('timeIntervals').value); // Numero di intervalli di tempo
+            const m = parseInt(document.getElementById('numAttackers').value); // Numero di attaccanti
+            const lambda = parseFloat(document.getElementById('lambda').value); // Attack rate
+            // Controlla se i valori di input sono validi
+            if (!validateInputs(n, m, lambda)) return;
+
+            attackersResults = ServerSimulation.simulateAttackers(n, m, lambda); // Simula gli attaccanti
+            colors = attackersResults.map(() => `rgba(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255}, 0.8)`); // Assegna colori casuali agli attaccanti
+
+            const { mean, variance, averageSuccess } = calculateStats(attackersResults, n);
+            document.getElementById("averageSuccessLabel").innerText = `Average Success: ${averageSuccess.toFixed(2)}`; // Mostra il successo medio
+            document.getElementById("meanDisplay").innerText = `Mean: ${mean.toFixed(2)}`; // Mostra la media
+            document.getElementById("varianceDisplay").innerText = `Variance: ${variance.toFixed(2)}`; // Mostra la varianza
+
+            drawAttackersChart(attackersResults, colors); // Disegna il grafico delle posizioni degli attaccanti
+            drawDistributionChart(attackersResults); // Disegna il grafico della distribuzione delle posizioni finali
+        }
+
+        // Funzione che valida i valori di input
+        function validateInputs(n, m, lambda) {
+            if (n < 1 || m < 1 || lambda < 0 || lambda >1) { // Controlla se i valori sono validi
+                alert("Invalid input values. Ensure all values are positive.");
+                return false;
+            }
+            return true;
+        }
+
+        document.getElementById('runSimulation').addEventListener('click', runSimulation);
+    </script>
+</body>
+</html>

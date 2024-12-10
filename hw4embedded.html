@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Continuous-Time Simulation in Relation to the Wiener Process</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        label {
+            display: block;
+            margin: 10px 0 5px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: block;
+            margin: 20px auto;
+            width: 200px;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        canvas {
+            max-width: 100%;
+            height: auto;
+            margin-top: 20px;
+        }
+
+        .results {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 1.2em;
+        }
+
+        #meanDisplay, #varianceDisplay {
+            background-color: #e2f0d9;
+            color: #3c763d;
+            border: 1px solid #d6e9c6;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 1.5em;
+            font-weight: bold;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Continuous-Time Simulation in Relation to the Wiener Process</h1>
+
+        <label for="numSteps">Number of Steps:</label>
+        <input type="number" id="numSteps" value="100" min="1" />
+
+        <label for="numServers">Number of Servers (n):</label>
+        <input type="number" id="numServers" value="15" min="1" />
+        
+        <label for="numAttackers">Number of Attackers (m):</label>
+        <input type="number" id="numAttackers" value="5" min="1" />
+        
+        <label for="penetrationProb">Penetration Probability (p):</label>
+        <input type="number" id="penetrationProb" value="0.45" step="0.01" min="0" max="1" />
+        
+        <button id="runSimulation">Run Simulation</button>
+        
+        <canvas id="attackersChart" width="600" height="400"></canvas>
+        <canvas id="simulationChart" width="600" height="400"></canvas>
+        
+        <div id="meanDisplay"></div>
+        <div id="varianceDisplay"></div>
+    </div>
+
+    <script>
+        'use strict'; // Abilita la modalità strict come richiesto
+
+        const random = () => Math.random(); // Definisce una funzione che genera un numero casuale tra 0 e 1
+
+        class Simulation {
+            constructor(n, m, p, steps) {
+                this.n = n; // Numero di server
+                this.m = m; // Numero di attaccanti
+                this.p = p; // Probabilità di penetrazione
+                this.steps = steps; // Numero di passi della simulazione
+            }
+
+            penetrateServer(p) {
+                return random() < p; // Determina se un server è penetrato in base alla probabilità p
+            }
+
+            randomWalkJump(p, dt) {
+                const stepDirection = random() < p ? 1 : -1; // Sceglie se il passo è positivo o negativo
+                return stepDirection * Math.sqrt(dt); // Calcola il salto nel cammino casuale in base al passo e al delta tempo
+            }
+
+            simulateAttacker() {
+                const dt = 1 / this.steps; // Usa il numero di passi per determinare l'incremento temporale
+                let penetrations = 0; // Inizializza il numero di penetrazioni
+                let penetrationsArray = []; // Array per memorizzare le penetrazioni a ogni passo
+                let trajectory = [0]; // La traiettoria inizia con 0 penetrazioni
+
+                for (let i = 0; i < this.steps; i++) { // Cicla per ogni passo della simulazione
+                    penetrations += this.randomWalkJump(this.p, dt); // Aggiunge il salto al totale delle penetrazioni
+                    penetrationsArray.push(penetrations); // Aggiunge il numero di penetrazioni corrente all'array
+                    trajectory.push(penetrations); // Aggiunge il numero di penetrazioni alla traiettoria
+                }
+                return { penetrations, penetrationsArray, trajectory }; // Restituisce il totale delle penetrazioni, l'array delle penetrazioni e la traiettoria
+            }
+
+            simulateAttackers() {
+                const penetrationsList = []; // Lista per memorizzare il numero totale di penetrazioni per ogni attaccante
+                const attackersResults = []; // Lista per memorizzare i risultati di ogni attaccante
+
+                for (let i = 0; i < this.m; i++) { // Cicla per ogni attaccante
+                    const { penetrations, penetrationsArray } = this.simulateAttacker(); // Esegue la simulazione per un attaccante
+                    penetrationsList.push(penetrations); // Aggiunge il totale delle penetrazioni alla lista
+                    attackersResults.push(penetrationsArray); // Aggiunge l'array delle penetrazioni alla lista dei risultati
+                }
+
+                return { penetrationsList, attackersResults }; // Restituisce la lista dei totali di penetrazione e i risultati per ogni attaccante
+            }
+
+            static calculateMean(data) {
+                const sum = data.reduce((acc, val) => acc + val, 0); // Somma tutti i valori dell'array
+                return sum / data.length; // Calcola e restituisce la media
+            }
+
+            static calculateVariance(data, mean) {
+                const sumOfSquares = data.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0); // Calcola la somma dei quadrati delle differenze dalla media
+                return sumOfSquares / data.length; // Calcola e restituisce la varianza
+            }
+
+            static displayResults(mean, variance) {
+                document.getElementById("meanDisplay").innerText = `Mean: ${mean.toFixed(2)}`; // Mostra il valore della media nella pagina
+                document.getElementById("varianceDisplay").innerText = `Variance: ${variance.toFixed(2)}`; // Mostra il valore della varianza nella pagina
+            }
+
+            static drawAttackersChart(attackersResults) {
+                const ctx = document.getElementById('attackersChart').getContext('2d'); // Ottiene il contesto del grafico degli attaccanti
+                if (attackersChart) {
+                    attackersChart.destroy(); // Cancella il grafico precedente se esiste
+                }
+
+                attackersChart = new Chart(ctx, {
+                    type: 'line', // Tipo di grafico: linee
+                    data: {
+                        labels: Array.from({ length: attackersResults[0].length }, (_, i) => i + 1), // Etichette per l'asse X (numero di tentativi)
+                        datasets: attackersResults.map((result, index) => ({
+                            label: `Attacker ${index + 1}`, // Etichetta per ogni attaccante
+                            data: result, // Dati delle penetrazioni per ogni attaccante
+                            borderColor: `rgba(${Math.floor(Math.random() * 255)}, ${Math.floor(Math.random() * 255)}, ${Math.floor(Math.random() * 255)}, 1)`, // Colore casuale per la linea
+                            fill: false, // Non riempie l'area sotto la linea
+                        }))
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Attackers Penetration Results', // Titolo del grafico
+                                font: { size: 20 }
+                            }
+                        },
+                        scales: {
+                            x: { title: { display: true, text: 'Attempts' } }, // Etichetta per l'asse X
+                            y: { title: { display: true, text: 'Penetration Success' }, beginAtZero: true } // Etichetta per l'asse Y
+                        }
+                    }
+                });
+            }
+
+            static plotSimulation(penetrationsList) {
+                const ctx = document.getElementById('simulationChart').getContext('2d'); // Ottiene il contesto del grafico della simulazione
+                if (simulationChart) {
+                    simulationChart.destroy(); // Distrugge il grafico precedente se esiste
+                }
+
+                simulationChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: Array.from({ length: penetrationsList.length }, (_, i) => `Attacker ${i + 1}`),
+                        datasets: [{
+                            label: 'Total Penetrations',
+                            data: penetrationsList, // Dati del numero totale di penetrazioni per ogni attaccante
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            fill: false,
+                            tension: 0.1,
+                            borderWidth: 2,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Total Penetrations per Attacker',
+                                font: { size: 20 }
+                            }
+                        },
+                        scales: {
+                            x: { title: { display: true, text: 'Attackers' } },
+                            y: { title: { display: true, text: 'Number of Penetrations' }, beginAtZero: true }
+                        }
+                    }
+                });
+            }
+        }
+
+        let attackersChart; // Variabile globale per l'istanza del grafico degli attaccanti
+        let simulationChart; // Variabile globale per l'istanza del grafico della simulazione
+
+        // Funzione per eseguire la simulazione
+        function runSimulation() {
+            const n = parseInt(document.getElementById('numServers').value); // Ottiene il numero di server
+            const m = parseInt(document.getElementById('numAttackers').value); // Ottiene il numero di attaccanti
+            const p = parseFloat(document.getElementById('penetrationProb').value); // Ottiene la probabilità di penetrazione
+            const steps = parseInt(document.getElementById('numSteps').value); // Ottiene il numero di passi della simulazione
+
+            const simulation = new Simulation(n, m, p, steps); // Crea una nuova simulazione con i parametri specificati
+            const { penetrationsList, attackersResults } = simulation.simulateAttackers(); // Simula gli attaccanti
+
+            // Calcola la media e la varianza delle penetrazioni
+            const mean = Simulation.calculateMean(penetrationsList);
+            const variance = Simulation.calculateVariance(penetrationsList, mean);
+
+            // Mostra i risultati nella pagina
+            Simulation.displayResults(mean, variance);
+
+            // Disegna il grafico degli attaccanti
+            Simulation.drawAttackersChart(attackersResults);
+
+            // Disegna il grafico della simulazione
+            Simulation.plotSimulation(penetrationsList);
+        }
+
+        document.getElementById('runSimulation').addEventListener('click', runSimulation);
+    </script>
+</body>
+</html>

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Penetration Simulation</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        label {
+            display: block;
+            margin: 10px 0 5px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: block;
+            margin: 20px auto;
+            width: 200px;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        .chart-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+            gap: 20px;
+        }
+
+        canvas {
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 100%;
+        }
+
+        #attackersChart {
+            max-width: 800px;
+        }
+
+        #horizontalHistogram {
+            max-width: 800px;
+        }
+
+        #averageSuccessLabel {
+            text-align: center;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+
+        .histogram-label {
+            text-align: center;
+            font-weight: bold;
+            margin-top: -10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Server Penetration Simulation</h1>
+
+        <label for="numServers">Number of Servers (n):</label>
+        <input type="number" id="numServers" value="15" min="1" />
+
+        <label for="numAttackers">Number of Attackers (m):</label>
+        <input type="number" id="numAttackers" value="5" min="1" />
+
+        <label for="penetrationProb">Penetration Probability (p):</label>
+        <input type="number" id="penetrationProb" value="0.45" step="0.01" min="0" max="1" />
+
+        <button id="runSimulation">Run Simulation</button>
+
+        <div class="chart-container">
+            <canvas id="attackersChart"></canvas>
+            <div class="histogram-label">Successes</div>
+            <canvas id="horizontalHistogram"></canvas>
+        </div>
+
+        <div id="averageSuccessLabel">Average Successes: 0</div>
+    </div>
+
+    <script>
+        "use strict"; // Abilita la modalità strict come richiesto
+
+        // Classe per la simulazione del comportamento degli attaccanti
+        class ServerSimulation {
+            static random() {
+                return Math.random(); // Genera un numero casuale tra 0 e 1
+            }
+
+            // Funzione per determinare se un server viene penetrato
+            static penetrateServer(p) {
+                return ServerSimulation.random() < p; // Confronta un numero casuale con la probabilità p
+            }
+
+            // Simula l'attacco di un singolo attaccante su n server
+            static simulateAttacker(n, p) {
+                let penetrationsArray = [];
+                for (let i = 0; i < n; i++) {
+                    // Aggiunge 1 per successo e 0 per fallimento
+                    penetrationsArray.push(ServerSimulation.penetrateServer(p) ? 1 : 0);
+                }
+                return penetrationsArray;
+            }
+
+            // Simula m attaccanti su n server
+            static simulateAttackers(n, m, p) {
+                return Array.from({ length: m }, () => ServerSimulation.simulateAttacker(n, p)); // Crea un array di risultati per ogni attaccante
+            }
+        }
+
+        let attackersChart;
+
+        // Funzione per disegnare il grafico delle penetrazioni degli attaccanti
+        function drawAttackersChart(attackersResults, colors) {
+            const ctx = document.getElementById('attackersChart').getContext('2d');
+
+            // Se esiste già un grafico, lo distruggiamo prima di crearne uno nuovo
+            if (attackersChart) {
+                attackersChart.destroy();
+            }
+
+            // Disegnamo il grafico a linee
+            attackersChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    // Le etichette per l'asse X corrispondono ai tentativi numerati
+                    labels: Array.from({ length: attackersResults[0].length }, (_, i) => i + 1),
+                    datasets: attackersResults.map((result, index) => ({
+                        label: `Attacker ${index + 1}`, // Etichetta per ogni attaccante
+                        data: result, // Dati di successo e fallimento
+                        borderColor: colors[index], // Colore della linea per ogni attaccante
+                        fill: false, // La linea non sarà riempita
+                    }))
+                },
+                options: {
+                    responsive: true, // Resizing del grafico
+                    plugins: {
+                        legend: {
+                            display: true, // Visualizza la legenda
+                            position: 'top'
+                        },
+                        title: {
+                            display: true, // Titolo del grafico
+                            text: 'Attackers Penetration Results',
+                            font: { size: 14 }
+                        }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Attempts' } }, // Titolo dell'asse X
+                        y: { title: { display: true, text: 'Success (1) / Failure (0)' }, beginAtZero: true } // Titolo dell'asse Y
+                    }
+                }
+            });
+        }
+
+        // Funzione per disegnare l'istogramma orizzontale con il numero di successi
+        function drawHorizontalHistogram(ctx, attackersResults, canvasWidth, canvasHeight, colors) {
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight); // Pulisce il canvas
+
+            const attackerCount = attackersResults.length;
+            const barHeight = canvasHeight / attackerCount - 5; // Altezza delle barre
+            const scaleFactor = canvasWidth / Math.max(...attackersResults.map(a => a.filter(x => x === 1).length)); // Fattore di scala per le barre
+
+            // Cicliamo sugli attaccanti per disegnare le barre
+            attackersResults.forEach((results, index) => {
+                const successes = results.filter(x => x === 1).length; // Calcola i successi per ciascun attaccante
+                const barWidth = successes * scaleFactor; // Calcola la larghezza della barra
+                const y = index * (barHeight + 5); // Calcola la posizione verticale della barra
+
+                ctx.fillStyle = colors[index]; // Colore per la barra dell'attaccante
+                ctx.fillRect(0, y, barWidth, barHeight); // Disegna la barra
+                ctx.strokeRect(0, y, barWidth, barHeight); // Disegna il bordo della barra
+
+                ctx.fillStyle = '#000'; // Colore del testo
+                ctx.textAlign = 'right'; // Testo allineato a destra
+                ctx.font = '12px Arial';
+
+                // Posiziona il numero di successi poco prima del bordo destro della barra
+                const textXPosition = barWidth - 5; // Un piccolo margine prima del bordo
+                ctx.fillText(successes, textXPosition, y + barHeight / 2 + 5); // Mostra il numero di successi
+
+                // Aggiunge il numero dell'attaccante a sinistra della barra
+                ctx.textAlign = 'left';  // Allineamento a sinistra
+                ctx.fillText(`Attacker ${index + 1}`, -45, y + barHeight / 2 + 5); // Numero dell'attaccante
+            });
+        }
+
+        // Funzione per validare gli input dell'utente
+        function validateInputs(n, m, p) {
+            if (n < 1 || m < 1 || p < 0 || p > 1) {
+                alert("The values entered are not valid. Ensure all values are positive and the probability is between 0 and 1.");
+                return false; // Ritorna falso se i dati sono errati
+            }
+            return true; // Ritorna vero se i dati sono validi
+        }
+
+        // Funzione per eseguire la simulazione
+        function runSimulation() {
+            const n = parseInt(document.getElementById('numServers').value);
+            const m = parseInt(document.getElementById('numAttackers').value);
+            const p = parseFloat(document.getElementById('penetrationProb').value);
+
+            if (!validateInputs(n, m, p)) return; // Se i dati non sono validi, non eseguire la simulazione
+
+            const attackersResults = ServerSimulation.simulateAttackers(n, m, p); // Simula gli attaccanti
+            const colors = attackersResults.map(() => `rgba(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255}, 0.8)`); // Colori casuali per ogni attaccante
+
+            drawAttackersChart(attackersResults, colors); // Disegna il grafico delle penetrazioni
+
+            const histogramCanvas = document.getElementById('horizontalHistogram');
+            histogramCanvas.height = Math.max(150, 30 * m); // Imposta l'altezza dell'istogramma in base al numero di attaccanti
+            const histogramCtx = histogramCanvas.getContext('2d');
+            drawHorizontalHistogram(histogramCtx, attackersResults, histogramCanvas.width, histogramCanvas.height, colors); // Disegna l'istogramma orizzontale
+
+            // Calcola e mostra il numero medio di successi
+            const totalSuccesses = attackersResults.flat().reduce((acc, val) => acc + val, 0);
+            const averageSuccesses = totalSuccesses / m;
+            document.getElementById('averageSuccessLabel').textContent = `Average Successes: ${averageSuccesses.toFixed(2)}`;
+        }
+
+        // Aggiunge un listener al pulsante per eseguire la simulazione quando viene cliccato
+        document.getElementById('runSimulation').addEventListener('click', runSimulation);
+    </script>
+</body>
+</html>

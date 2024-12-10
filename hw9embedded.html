@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sampling Distributions</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.8.0/dist/chart.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        label {
+            display: block;
+            margin: 10px 0 5px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: block;
+            margin: 20px auto;
+            width: 200px;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        canvas {
+            max-width: 100%;
+            height: auto;
+            margin-top: 20px;
+        }
+
+        .results {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 1.2em;
+        }
+
+        #summary {
+            background-color: #e2f0d9;
+            color: #3c763d;
+            border: 1px solid #d6e9c6;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 1.5em;
+            font-weight: bold;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Sampling Distributions</h1>
+    
+        <label for="numSamples">Number of samples (m):</label>
+        <input type="number" id="numSamples" value="1000" min="1" />
+    
+        <label for="sampleSize">Sample size (n):</label>
+        <input type="number" id="sampleSize" value="20" min="1" />
+
+        <label for="numTrials">Number of trials (k):</label>
+        <input type="number" id="numTrials" value="10" />
+
+        <label for="probability">Probability of success (p):</label>
+        <input type="number" id="probability" value="0.5" step="0.01" min="0" max="1" />
+    
+        <button id="generateSamplingButton">Generate Distributions</button>
+    
+        <canvas id="meansChart" width="600" height="400"></canvas>
+        <canvas id="variancesChart" width="600" height="400"></canvas>
+        <canvas id="comparisonChart" width="600" height="400"></canvas>
+    
+        <div id="summary"></div>
+    </div>    
+
+    <script>
+        'use strict';
+    
+        class SamplingDistributions {
+            constructor() {
+                this.samples = [];
+            }
+    
+            // Funzione per generare un singolo campione binomiale
+            binomialSample(k, p) {
+                let successes = 0;
+                for (let i = 0; i < k; i++) {
+                    if (Math.random() < p) successes++; // Conta i successes in base alla probabilità p
+                }
+                return successes;
+            }
+    
+            // Funzione per generare la distribuzione del campionamento
+            generateSamplingDistribution(m, n, k, p) {
+                // Validazione dei valori di input
+                if (m <= 0 || n <= 0 || k <= 0 || p < 0 || p > 1) {
+                    document.getElementById('summary').innerHTML = 
+                        `<span style="color:red;">Invalid input values! Make sure all values are positive and that p is between 0 and 1.</span>`;
+                    return;
+                }
+    
+                // Generazione dei campioni
+                this.samples = []; // Reset dei campioni
+                for (let i = 0; i < m; i++) {
+                    const sample = [];
+                    for (let j = 0; j < n; j++) {
+                        sample.push(this.binomialSample(k, p)); // Aggiunge il campione binomiale al campione
+                    }
+                    this.samples.push(sample); // Aggiunge il campione alla lista dei campioni
+                }
+    
+                // Calcolo delle medie e delle varianze per ogni campione
+                const means = this.samples.map(sample => sample.reduce((a, b) => a + b, 0) / n); // Calcola la media di ogni campione
+                const variances = this.samples.map(sample => {
+                    const mean = sample.reduce((a, b) => a + b, 0) / n; // Calcola la media del campione
+                    return sample.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (n - 1); // Calcola la varianza del campione
+                });
+    
+                // Calcolo delle statistiche
+                const meanOfMeans = means.reduce((a, b) => a + b, 0) / m; // Calcola la media delle medie dei campioni
+                const meanOfVariances = variances.reduce((a, b) => a + b, 0) / m; // Calcola la media delle varianze dei campioni
+                const varianceOfVariances = variances.reduce((a, b) => a + Math.pow(b - meanOfVariances, 2), 0) / (m - 1); // Calcola la varianza delle varianze
+    
+                const theoreticalMean = k * p; // Calcola la media teorica
+                const theoreticalVariance = k * p * (1 - p); // Calcola la varianza teorica
+    
+                // Visualizza i risultati
+                document.getElementById('summary').innerHTML = `
+                    <strong>Results:</strong><br>
+                        <ul>
+                            <li>Observed Mean of Means: ${meanOfMeans.toFixed(3)} | Theoretical Mean: ${theoreticalMean.toFixed(3)}</li>
+                            <li>Observed Mean of Variances: ${meanOfVariances.toFixed(3)} | Theoretical Variance: ${theoreticalVariance.toFixed(3)}</li>
+                            <li>Variance of Sample Variances: ${varianceOfVariances.toFixed(3)}</li>
+                        </ul>`;
+    
+                // Genera i grafici
+                this.generateCharts(means, variances, meanOfMeans, theoreticalMean, meanOfVariances, theoreticalVariance);
+            }
+    
+            // Funzione per generare i grafici
+            generateCharts(means, variances, meanOfMeans, theoreticalMean, meanOfVariances, theoreticalVariance) {
+                // Distrugge i grafici esistenti se già presenti
+                if (window.meansChart instanceof Chart) window.meansChart.destroy();
+                if (window.variancesChart instanceof Chart) window.variancesChart.destroy();
+                if (window.comparisonChart instanceof Chart) window.comparisonChart.destroy();
+    
+                // Grafico delle medie dei campioni
+                const ctxMeans = document.getElementById('meansChart').getContext('2d');
+                window.meansChart = new Chart(ctxMeans, {
+                    type: 'bar',
+                    data: {
+                        labels: Array.from({length: means.length}, (_, i) => i + 1), // Etichette per i campioni
+                        datasets: [{
+                            label: 'Medie dei campioni',
+                            data: means, // Dati delle medie
+                            backgroundColor: 'rgba(75, 192, 192, 0.6)' // Colore di sfondo per il grafico
+                        }]
+                    },
+                    options: { responsive: true, scales: { x: { display: false } } } // Opzioni per il grafico
+                });
+    
+                // Grafico delle varianze dei campioni
+                const ctxVariances = document.getElementById('variancesChart').getContext('2d');
+                window.variancesChart = new Chart(ctxVariances, {
+                    type: 'bar',
+                    data: {
+                        labels: Array.from({length: variances.length}, (_, i) => i + 1), // Etichette per i campioni
+                        datasets: [{
+                            label: 'Variances',
+                            data: variances, // Dati delle varianze
+                            backgroundColor: 'rgba(153, 102, 255, 0.6)' // Colore di sfondo per il grafico
+                        }]
+                    },
+                    options: { responsive: true, scales: { x: { display: false } } } // Opzioni per il grafico
+                });
+    
+                // Grafico di confronto
+                const ctxComparison = document.getElementById('comparisonChart').getContext('2d');
+                window.comparisonChart = new Chart(ctxComparison, {
+                    type: 'line',
+                    data: {
+                        labels: ['Mean of Means', 'Theoretical Mean', 'Mean of Variances', 'Theoretical Variance'], // Etichette per il grafico di confronto
+                        datasets: [{
+                            label: 'Confronto',
+                            data: [meanOfMeans, theoreticalMean, meanOfVariances, theoreticalVariance], // Dati da confrontare
+                            backgroundColor: 'rgba(255, 206, 86, 0.6)', // Colore di sfondo per il grafico
+                            borderColor: 'rgba(255, 206, 86, 1)', // Colore del bordo per il grafico
+                            fill: false // Non riempie l'area sotto la linea
+                        }]
+                    },
+                    options: { responsive: true } // Opzioni per il grafico
+                });
+            }
+        }
+    
+        // Creazione di un'istanza della classe SamplingDistributions
+        const samplingDistributions = new SamplingDistributions();
+    
+        // Aggiunta di un listener per il click del pulsante di generazione dei campioni
+        document.getElementById('generateSamplingButton').onclick = () => {
+            const m = parseInt(document.getElementById('numSamples').value); // Numero di campioni
+            const n = parseInt(document.getElementById('sampleSize').value); // Dimensione di ogni campione
+            const k = parseInt(document.getElementById('numTrials').value); // Numero di prove in ogni campione
+            const p = parseFloat(document.getElementById('probability').value); // Probabilità di successo in ogni prova
+            samplingDistributions.generateSamplingDistribution(m, n, k, p); // Genera la distribuzione del campionamento
+        };
+    </script>
+    
+</body>
+</html>

@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unified Simulation Framework</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        label {
+            display: block;
+            margin: 10px 0 5px;
+        }
+
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 1em;
+            background-color: white;
+            color: #333;
+            appearance: none;
+            box-sizing: border-box;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: block;
+            margin: 20px auto;
+            width: 200px;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        .chart-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+            gap: 20px;
+        }
+
+        canvas {
+            max-width: 100%;
+            height: auto;
+            margin-top: 20px;
+        }
+
+        .results {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 1.2em;
+        }
+
+        #meanDisplay, #varianceDisplay, #averageSuccessLabel,
+        #averageSuccessLabel2, #meanDisplay3, #varianceDisplay3,
+        #averageSuccessLabel3, #meanDisplay4, #varianceDisplay4 {
+            background-color: #e2f0d9;
+            color: #3c763d;
+            border: 1px solid #d6e9c6;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 1.5em;
+            font-weight: bold;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Unified Simulation Framework</h1>
+
+        <label for="simulationType">Choose Simulation Type:</label>
+        <select id="simulationType">
+            <option value="discrete">Discrete Penetration Simulation</option>
+            <option value="randomWalk">Random Walk Simulation</option>
+            <option value="continuousTime">Continuous-Time Penetration Simulation</option>
+            <option value="wienerProcess">Wiener Process-based Simulation</option>
+        </select>
+
+        
+        <button id="runSimulation">Run Simulation</button>
+
+        <!-- Discrete Penetration Simulation Inputs -->
+        <div id="discreteInputs" class="simulationInputs">
+            <label for="numServers">Number of Servers (n):</label>
+            <input type="number" id="numServers" value="15" min="1" />
+
+            <label for="numAttackers">Number of Attackers (m):</label>
+            <input type="number" id="numAttackers" value="5" min="1" />
+
+            <label for="penetrationProb">Penetration Probability (p):</label>
+            <input type="number" id="penetrationProb" value="0.45" step="0.01" min="0" max="1" />
+
+            <div class="chart-container">
+                <canvas id="attackersChart"></canvas>
+                <div class="histogram-label">Successes</div>
+                <canvas id="horizontalHistogram"></canvas>
+            </div>
+
+            <div id="averageSuccessLabel">Average Successes: 0</div>
+        </div>
+
+        <!-- Random Walk Simulation Inputs -->
+        <div id="randomWalkInputs" class="simulationInputs" style="display: none;">
+            <label for="numServers">Number of Servers (n):</label>
+            <input type="number" id="numServers" value="15" min="1" />
+
+            <label for="numAttackers">Number of Attackers (m):</label>
+            <input type="number" id="numAttackers" value="5" min="1" />
+
+            <label for="jumpProb">Jump Probability (+1 or -1) (p):</label>
+            <input type="number" id="jumpProb" value="0.5" step="0.01" min="0" max="1" />
+
+            <div class="chart-container">
+                <canvas id="attackersChart2"></canvas>
+                <canvas id="horizontalHistogram2"></canvas>
+                <canvas id="distributionChart"></canvas>
+                <button id="advanceTime" disabled>Next Step</button>
+                <canvas id="frequencyChartAbsolute"></canvas>
+                <canvas id="frequencyChartRelative"></canvas>
+            </div>
+
+            <div id="averageSuccessLabel2">Average Successes: 0</div>
+            <div id="meanDisplay">Mean: 0</div>
+            <div id="varianceDisplay">Variance: 0</div>
+        </div>
+
+        <!-- Continuous Time Penetration Simulation Inputs -->
+        <div id="continuousTimeInputs" class="simulationInputs" style="display: none;">
+            <label for="timeIntervals">Number of Time Intervals (n):</label>
+            <input type="number" id="timeIntervals" value="1000" min="1" />
+
+            <label for="numAttackers">Number of Attackers (m):</label>
+            <input type="number" id="numAttackers" value="15" min="1" />
+
+            <label for="lambda">Attack Rate (λ):</label>
+            <input type="number" id="lambda" value="0.5" step="0.01" min="0" />
+
+            <div class="chart-container">
+                <canvas id="attackersChart3"></canvas>
+                <canvas id="distributionChart3"></canvas>
+            </div>
+
+            <div id="averageSuccessLabel3"></div>
+            <div id="meanDisplay3"></div>
+            <div id="varianceDisplay3"></div>
+        </div>
+
+        <!-- Wiener Process Simulation Inputs -->
+        <div id="wienerProcessInputs" class="simulationInputs" style="display: none;">
+            <label for="numSteps">Number of Steps:</label>
+            <input type="number" id="numSteps" value="100" min="1" />
+
+            <label for="numServers">Number of Servers (n):</label>
+            <input type="number" id="numServers" value="15" min="1" />
+            
+            <label for="numAttackers">Number of Attackers (m):</label>
+            <input type="number" id="numAttackers" value="5" min="1" />
+            
+            <label for="penetrationProb">Penetration Probability (p):</label>
+            <input type="number" id="penetrationProb" value="0.45" step="0.01" min="0" max="1" />
+            
+            <canvas id="attackersChart4" width="600" height="400"></canvas>
+            <canvas id="simulationChart4" width="600" height="400"></canvas>
+            
+            <div id="meanDisplay4"></div>
+            <div id="varianceDisplay4"></div>
+        </div>
+
+    </div>
+
+    <script>
+        "use strict";
+
+        // Classi per la simulazione di ogni modello (ogni hw)
+        const random = () => Math.random();
+
+        // Discrete Penetration Simulation (from hw1embedded.html)
+        class DiscreteSimulation {
+
+            // Funzione per determinare se un server viene penetrato
+            static penetrateServer(p) {
+                return random() < p; // Confronta un numero casuale con la probabilità p
+            }
+
+            // Simula l'attacco di un singolo attaccante su n server
+            static simulateAttacker(n, p) {
+                let penetrationsArray = [];
+                for (let i = 0; i < n; i++) {
+                    // Aggiunge 1 per successo e 0 per fallimento
+                    penetrationsArray.push(DiscreteSimulation.penetrateServer(p) ? 1 : 0);
+                }
+                return penetrationsArray;
+            }
+
+            // Simula m attaccanti su n server
+            static simulateAttackers(n, m, p) {
+                return Array.from({ length: m }, () => DiscreteSimulation.simulateAttacker(n, p)); // Crea un array di risultati per ogni attaccante
+            }
+        }
+
+        // Funzione per disegnare il grafico delle penetrazioni degli attaccanti (HW1)
+        function hw1DrawAttackersChart(attackersResults, colors) {
+            const ctx = document.getElementById('attackersChart').getContext('2d');
+
+            // Se esiste già un grafico, lo distruggiamo prima di crearne uno nuovo
+            if (attackersChart) {
+                attackersChart.destroy();
+            }
+
+            // Disegnamo il grafico a linee
+            attackersChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    // Le etichette per l'asse X corrispondono ai tentativi numerati
+                    labels: Array.from({ length: attackersResults[0].length }, (_, i) => i + 1),
+                    datasets: attackersResults.map((result, index) => ({
+                        label: `Attacker ${index + 1}`, // Etichetta per ogni attaccante
+                        data: result, // Dati di successo e fallimento
+                        borderColor: colors[index], // Colore della linea per ogni attaccante
+                        fill: false, // La linea non sarà riempita
+                    }))
+                },
+                options: {
+                    responsive: true, // Resizing del grafico
+                    plugins: {
+                        legend: {
+                            display: true, // Visualizza la legenda
+                            position: 'top'
+                        },
+                        title: {
+                            display: true, // Titolo del grafico
+                            text: 'Attackers Penetration Results',
+                            font: { size: 14 }
+                        }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Attempts' } }, // Titolo dell'asse X
+                        y: { title: { display: true, text: 'Success (1) / Failure (0)' }, beginAtZero: true } // Titolo dell'asse Y
+                    }
+                }
+            });
+        }
+
+        // Funzione per disegnare l'istogramma orizzontale con il numero di successi (HW2)
+        function hw1DrawHorizontalHistogram(ctx, attackersResults, canvasWidth, canvasHeight, colors) {
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight); // Pulisce il canvas
+
+            const attackerCount = attackersResults.length;
+            const barHeight = canvasHeight / attackerCount - 5; // Altezza delle barre
+            const scaleFactor = canvasWidth / Math.max(...attackersResults.map(a => a.filter(x => x === 1).length)); // Fattore di scala per le barre
+
+            // Cicliamo sugli attaccanti per disegnare le barre
+            attackersResults.forEach((results, index) => {
+                const successes = results.filter(x => x === 1).length; // Calcola i successi per ciascun attaccante
+                const barWidth = successes * scaleFactor; // Calcola la larghezza della barra
+                const y = index * (barHeight + 5); // Calcola la posizione verticale della barra
+
+                ctx.fillStyle = colors[index]; // Colore per la barra dell'attaccante
+                ctx.fillRect(0, y, barWidth, barHeight); // Disegna la barra
+                ctx.strokeRect(0, y, barWidth, barHeight); // Disegna il bordo della barra
+
+                ctx.fillStyle = '#000'; // Colore del testo
+                ctx.textAlign = 'right'; // Testo allineato a destra
+                ctx.font = '12px Arial';
+
+                // Posiziona il numero di successi poco prima del bordo destro della barra
+                const textXPosition = barWidth - 5; // Un piccolo margine prima del bordo
+                ctx.fillText(successes, textXPosition, y + barHeight / 2 + 5); // Mostra il numero di successi
+
+                // Aggiunge il numero dell'attaccante a sinistra della barra
+                ctx.textAlign = 'left';  // Allineamento a sinistra
+                ctx.fillText(`Attacker ${index + 1}`, -45, y + barHeight / 2 + 5); // Numero dell'attaccante
+            });
+        }
+
+        // Random Walk Simulation (from hw2embedded.html)
+        class RandomWalkSimulation {
+
+            // Funzione per determinare se un attaccante salta +1 o -1
+            static jump(p_j) {
+                return random() < p_j ? 1 : -1; // Salto positivo con probabilità p_j, altrimenti negativo
+            }
+
+            // Funzione per simulare i movimenti di un singolo attaccante
+            static simulateAttacker(n, p_j) {
+                let y = 0;
+                let yHistory = [y]; // Memorizza la storia dei movimenti dell'attaccante
+
+                for (let i = 0; i < n; i++) {
+                    y += RandomWalkSimulation.jump(p_j); // Ogni passo è un salto
+                    yHistory.push(y); // Aggiunge il nuovo valore di y alla cronologia
+                }
+
+                return yHistory;
+            }
+
+            // Simula m attaccanti su n server
+            static simulateAttackers(n, m, p_j) {
+                return Array.from({ length: m }, () => RandomWalkSimulation.simulateAttacker(n, p_j));
+            }
+
+            // Calcola media e varianza ad ogni passo
+            static calculateMeanVariance(attackersResults) {
+                // Somma le posizioni di tutti gli attaccanti a ogni passo
+                const totalSteps = attackersResults[0].length; // Numero di passi (colonne)
+                const totalAttackers = attackersResults.length; // Numero di attaccanti
+
+                // Calcola la media totale per ogni passo
+                const meanTotal = [];
+                const varianceTotal = [];
+
+                for (let step = 0; step < totalSteps; step++) {
+                    // Somma i valori di tutti gli attaccanti per il passo corrente
+                    const stepValues = attackersResults.map(attacker => attacker[step]);
+                    const totalSum = stepValues.reduce((sum, val) => sum + val, 0);
+                    const mean = totalSum / (totalAttackers);
+
+                    // Calcola la varianza per il passo corrente
+                    const variance = stepValues.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / totalAttackers;
+
+                    meanTotal.push(mean);
+                    varianceTotal.push(variance);
+                }
+
+                return { meanTotal, varianceTotal };
+            }
+
+            // Calcola la distribuzione di frequenza ad un passo specifico
+            static calculateDistribution(attackersResults, step) {
+                const stepResults = attackersResults.map(result => result[step] || 0); // Ottiene i valori al passo selezionato
+                const distributionData = [...new Set(stepResults)].map(val => ({
+                    value: val,
+                    count: stepResults.filter(v => v === val).length
+                }));
+                return distributionData;
+            }
+        }
+
+        // Funzione per disegnare il grafico degli attaccanti
+        function hw2DrawAttackersChart(attackersResults, colors) {
+            const ctx = document.getElementById('attackersChart2').getContext('2d');
+            if (attackersChart2) {
+                attackersChart2.destroy(); // Cancella il grafico esistente se esiste già
+            }
+            attackersChart2 = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({ length: attackersResults[0].length - 1 }, (_, i) => i + 1),
+                    datasets: attackersResults.map((result, index) => ({
+                        label: `Attacker ${index + 1}`,
+                        data: result,
+                        borderColor: colors[index],
+                        fill: false,
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: true, position: 'top' },
+                        title: { display: true, text: 'Attackers Penetration Results' }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Steps' } },
+                        y: { title: { display: true, text: 'Position (y)' }, beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        // Funzione per disegnare l'istogramma orizzontale degli attaccanti
+        function hw2DrawHorizontalHistogram(ctx, attackersResults, canvasWidth, canvasHeight, colors, step) {
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+            const attackerCount = attackersResults.length;
+            const barHeight = canvasHeight / attackerCount - 5;
+            const scaleFactor = canvasWidth / Math.max(...attackersResults.map(a => a.slice(0, step).filter(x => x > 0).length));
+
+            attackersResults.forEach((results, index) => {
+                const successes = results.slice(0, step).filter(x => x > 0).length; // Conta i successi
+                const barWidth = successes * scaleFactor;
+                const y = index * (barHeight + 5);
+
+                ctx.fillStyle = colors[index];
+                ctx.fillRect(0, y, barWidth, barHeight);
+                ctx.strokeRect(0, y, barWidth, barHeight);
+
+                ctx.fillStyle = '#000';
+                ctx.textAlign = 'right';
+                ctx.font = '12px Arial';
+                ctx.fillText(successes, barWidth - 5, y + barHeight / 2 + 5); // Scrive il numero di successi sulla barra
+                ctx.textAlign = 'left';
+                ctx.fillText(` ${index + 1}`, -45, y + barHeight / 2 + 5); // Scrive il numero dell'attaccante
+            });
+        }
+
+        // Funzione per disegnare il grafico della distribuzione degli attaccanti
+        function hw2DrawDistributionChart(attackersResults, step, colors) {
+            const ctx = document.getElementById('distributionChart').getContext('2d');
+            const distributionData = RandomWalkSimulation.calculateDistribution(attackersResults, step);
+
+            if (distributionChart) {
+                distributionChart.destroy(); // Elimina il grafico precedente
+            }
+
+            distributionChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: distributionData.map(d => d.value),
+                    datasets: [{
+                        label: 'Distribution at Step ' + step,
+                        data: distributionData.map(d => d.count),
+                        backgroundColor: colors
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false },
+                        title: { display: true, text: `Distribution at Step ${step}` }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Value' } },
+                        y: { title: { display: true, text: 'Frequency' }, beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        // Funzione per disegnare il grafico delle due frequenze
+        function hw2DrawFrequencyChart(attackersResults, step) {
+            const ctxAbsolute = document.getElementById('frequencyChartAbsolute').getContext('2d');
+            const ctxRelative = document.getElementById('frequencyChartRelative').getContext('2d');
+            
+            const distributionData = RandomWalkSimulation.calculateDistribution(attackersResults, step);
+
+            const totalCounts = distributionData.reduce((sum, d) => sum + d.count, 0);
+
+            // Frequenza assoluta
+            const absoluteFrequencies = distributionData.map(d => d.count);
+
+            // Frequenza relativa
+            const relativeFrequencies = distributionData.map(d => d.count / totalCounts);
+
+            // Cancella i grafici precedenti, se esistono
+            if (frequencyChartAbsolute) {
+                frequencyChartAbsolute.destroy();
+            }
+            if (frequencyChartRelative) {
+                frequencyChartRelative.destroy();
+            }
+
+            // Grafico per frequenza assoluta
+            frequencyChartAbsolute = new Chart(ctxAbsolute, {
+                type: 'line',
+                data: {
+                    labels: distributionData.map(d => d.value),
+                    datasets: [{
+                        label: 'Absolute Frequency',
+                        data: absoluteFrequencies,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        fill: false,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: true, position: 'top' },
+                        title: { display: true, text: `Absolute Frequency at Step ${step}` }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Value' } },
+                        y: { 
+                            title: { display: true, text: 'Absolute Frequency' }, 
+                            beginAtZero: true,
+                            position: 'left'
+                        }
+                    }
+                }
+            });
+
+            // Grafico per frequenza relativa
+            frequencyChartRelative = new Chart(ctxRelative, {
+                type: 'line',
+                data: {
+                    labels: distributionData.map(d => d.value),
+                    datasets: [{
+                        label: 'Relative Frequency',
+                        data: relativeFrequencies,
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        fill: false,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: true, position: 'top' },
+                        title: { display: true, text: `Relative Frequency at Step ${step}` }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Value' } },
+                        y: { 
+                            title: { display: true, text: 'Relative Frequency' }, 
+                            beginAtZero: true,
+                            position: 'left'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Continuous-Time Penetration Simulation (from hw3embedded.html)
+        class ContinuousTimeSimulation {
+
+            // Funzione che simula un salto del server (attacco) basato su un valore λ e un intervallo di tempo
+            static jump(lambda, dt) {
+                return random() < lambda * dt ? 1 : 0;
+            }
+
+            // Simula il comportamento di un singolo attaccante nel tempo
+            static simulateAttacker(n, lambda) {
+                const dt = 1 / n; // Calcola l'intervallo di tempo
+                let position = 0;
+                const positionHistory = [position]; // Memorizza la posizione nel tempo
+
+                for (let i = 0; i < n; i++) {
+                    position += ContinuousTimeSimulation.jump(lambda, dt); // Aggiorna la posizione in base all'attacco
+                    positionHistory.push(position); // Memorizza la nuova posizione
+                }
+
+                return positionHistory; // Restituisce la storia delle posizioni
+            }
+
+            // Simula il comportamento di più attaccanti
+            static simulateAttackers(n, m, lambda) {
+                return Array.from({ length: m }, () => ContinuousTimeSimulation.simulateAttacker(n, lambda)); // Simula m attaccanti
+            }
+        }
+
+        // Disegna il grafico delle posizioni degli attaccanti nel tempo
+        function hw3DrawAttackersChart(results, colors) {
+            const ctx = document.getElementById('attackersChart3').getContext('2d');
+            if (attackersChart3) attackersChart3.destroy(); // Distrugge il grafico precedente, se esiste
+
+            // Crea un nuovo grafico delle posizioni nel tempo
+            attackersChart3 = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({ length: results[0].length }, (_, i) => i), // Intervallo di tempo
+                    datasets: results.map((result, index) => ({
+                        label: `Attacker ${index + 1}`,
+                        data: result,
+                        borderColor: colors[index],
+                        fill: false,
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: true, position: 'top' },
+                        title: { display: true, text: 'Attackers Continuous Penetration Results' }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Time Interval' } },
+                        y: { title: { display: true, text: 'Position' }, beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        // Disegna il grafico della distribuzione delle posizioni finali degli attaccanti
+        function hw3DrawDistributionChart(results) {
+            const ctx = document.getElementById('distributionChart3').getContext('2d');
+            if (distributionChart3) distributionChart3.destroy(); // Elimina il grafico precedente, se esiste
+
+            const finalPositions = results.map(result => result[result.length - 1]); // Estrae le posizioni finali
+            const maxPosition = Math.max(...finalPositions);
+            const bins = Array.from({ length: maxPosition + 1 }, (_, i) => i);
+            const counts = bins.map(bin => finalPositions.filter(pos => pos === bin).length); // Conta la frequenza delle posizioni finali
+
+            // Crea il grafico a barre della distribuzione delle posizioni finali
+            distributionChart3 = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: bins,
+                    datasets: [{
+                        label: 'Distribution of Final Positions',
+                        data: counts,
+                        backgroundColor: 'rgba(153, 102, 255, 0.8)',
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: true, position: 'top' },
+                        title: { display: true, text: 'Distribution of Final Positions of Attackers' }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Final Position' } },
+                        y: { title: { display: true, text: 'Count' }, beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        // Calcola media, varianza e successo medio
+        function calculateStats(results, n) {
+            const finalPositions = results.map(result => result[result.length - 1]);
+            const mean = finalPositions.reduce((acc, val) => acc + val, 0) / finalPositions.length; // Calcola la media
+            const variance = finalPositions.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / finalPositions.length; // Calcola la varianza
+            const averageSuccess = (finalPositions.reduce((acc, val) => acc + val, 0) / (n * results.length)) * 100; // Calcola il successo medio
+
+            return { mean, variance, averageSuccess };
+        }
+
+        // Wiener Process-based Simulation (new simulation)
+        class WienerProcessSimulation {
+            constructor(n, m, p, steps) {
+                this.n = n; // Numero di server
+                this.m = m; // Numero di attaccanti
+                this.p = p; // Probabilità di penetrazione
+                this.steps = steps; // Numero di passi della simulazione
+            }
+
+            penetrateServer(p) {
+                return random() < p; // Determina se un server è penetrato in base alla probabilità p
+            }
+
+            randomWalkJump(p, dt) {
+                const stepDirection = random() < p ? 1 : -1; // Sceglie se il passo è positivo o negativo
+                return stepDirection * Math.sqrt(dt); // Calcola il salto nel cammino casuale in base al passo e al delta tempo
+            }
+
+            simulateAttacker() {
+                const dt = 1 / this.steps; // Usa il numero di passi per determinare l'incremento temporale
+                let penetrations = 0; // Inizializza il numero di penetrazioni
+                let penetrationsArray = []; // Array per memorizzare le penetrazioni a ogni passo
+                let trajectory = [0]; // La traiettoria inizia con 0 penetrazioni
+
+                for (let i = 0; i < this.steps; i++) { // Cicla per ogni passo della simulazione
+                    penetrations += this.randomWalkJump(this.p, dt); // Aggiunge il salto al totale delle penetrazioni
+                    penetrationsArray.push(penetrations); // Aggiunge il numero di penetrazioni corrente all'array
+                    trajectory.push(penetrations); // Aggiunge il numero di penetrazioni alla traiettoria
+                }
+                return { penetrations, penetrationsArray, trajectory }; // Restituisce il totale delle penetrazioni, l'array delle penetrazioni e la traiettoria
+            }
+
+            simulateAttackers() {
+                const penetrationsList = []; // Lista per memorizzare il numero totale di penetrazioni per ogni attaccante
+                const attackersResults = []; // Lista per memorizzare i risultati di ogni attaccante
+
+                for (let i = 0; i < this.m; i++) { // Cicla per ogni attaccante
+                    const { penetrations, penetrationsArray } = this.simulateAttacker(); // Esegue la simulazione per un attaccante
+                    penetrationsList.push(penetrations); // Aggiunge il totale delle penetrazioni alla lista
+                    attackersResults.push(penetrationsArray); // Aggiunge l'array delle penetrazioni alla lista dei risultati
+                }
+
+                return { penetrationsList, attackersResults }; // Restituisce la lista dei totali di penetrazione e i risultati per ogni attaccante
+            }
+
+            static calculateMean(data) {
+                const sum = data.reduce((acc, val) => acc + val, 0); // Somma tutti i valori dell'array
+                return sum / data.length; // Calcola e restituisce la media
+            }
+
+            static calculateVariance(data, mean) {
+                const sumOfSquares = data.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0); // Calcola la somma dei quadrati delle differenze dalla media
+                return sumOfSquares / data.length; // Calcola e restituisce la varianza
+            }
+
+            static displayResults(mean, variance) {
+                document.getElementById("meanDisplay4").innerText = `Mean: ${mean.toFixed(2)}`; // Mostra il valore della media nella pagina
+                document.getElementById("varianceDisplay4").innerText = `Variance: ${variance.toFixed(2)}`; // Mostra il valore della varianza nella pagina
+            }
+
+            static drawAttackersChart(attackersResults) {
+                const ctx = document.getElementById('attackersChart4').getContext('2d'); // Ottiene il contesto del grafico degli attaccanti
+                if (attackersChart4) {
+                    attackersChart4.destroy(); // Cancella il grafico precedente se esiste
+                }
+
+                attackersChart4 = new Chart(ctx, {
+                    type: 'line', // Tipo di grafico: linee
+                    data: {
+                        labels: Array.from({ length: attackersResults[0].length }, (_, i) => i + 1), // Etichette per l'asse X (numero di tentativi)
+                        datasets: attackersResults.map((result, index) => ({
+                            label: `Attacker ${index + 1}`, // Etichetta per ogni attaccante
+                            data: result, // Dati delle penetrazioni per ogni attaccante
+                            borderColor: `rgba(${Math.floor(Math.random() * 255)}, ${Math.floor(Math.random() * 255)}, ${Math.floor(Math.random() * 255)}, 1)`, // Colore casuale per la linea
+                            fill: false, // Non riempie l'area sotto la linea
+                        }))
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Attackers Penetration Results', // Titolo del grafico
+                                font: { size: 20 }
+                            }
+                        },
+                        scales: {
+                            x: { title: { display: true, text: 'Attempts' } }, // Etichetta per l'asse X
+                            y: { title: { display: true, text: 'Penetration Success' }, beginAtZero: true } // Etichetta per l'asse Y
+                        }
+                    }
+                });
+            }
+
+            static plotSimulation(penetrationsList) {
+                const ctx = document.getElementById('simulationChart4').getContext('2d'); // Ottiene il contesto del grafico della simulazione
+                if (simulationChart4) {
+                    simulationChart4.destroy(); // Distrugge il grafico precedente se esiste
+                }
+
+                simulationChart4 = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: Array.from({ length: penetrationsList.length }, (_, i) => `Attacker ${i + 1}`),
+                        datasets: [{
+                            label: 'Total Penetrations',
+                            data: penetrationsList, // Dati del numero totale di penetrazioni per ogni attaccante
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            fill: false,
+                            tension: 0.1,
+                            borderWidth: 2,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Total Penetrations per Attacker',
+                                font: { size: 20 }
+                            }
+                        },
+                        scales: {
+                            x: { title: { display: true, text: 'Attackers' } },
+                            y: { title: { display: true, text: 'Number of Penetrations' }, beginAtZero: true }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Funzione per validare gli input dell'utente
+        function validateInputs(n, m, p) {
+            if (n < 1 || m < 1 || p < 0 || p > 1) {
+                alert("The values entered are not valid. Ensure all values are positive and the probability is between 0 and 1.");
+                return false; // Ritorna falso se i dati sono errati
+            }
+            return true; // Ritorna vero se i dati sono validi
+        }
+
+        let attackersChart, attackersChart2, attackersChart3, attackersChart4, simulationChart, simulationChart4, distributionChart, distributionChart3, attackersResults, frequencyChartAbsolute, frequencyChartRelative, colors;
+        let currentStep = 0;
+        const maxSteps = parseInt(document.getElementById('numServers').value);
+
+        function runSimulation() {
+            const simulationType = document.getElementById('simulationType').value;
+            let simulation;
+            let results;
+            let penetrationsList = [];
+
+            if (simulationType === 'discrete') {
+
+                const n = parseInt(document.getElementById('numServers').value);
+                const m = parseInt(document.getElementById('numAttackers').value);
+                const p = parseFloat(document.getElementById('penetrationProb').value);
+
+                if (!validateInputs(n, m, p)) return; // Se i dati non sono validi, non eseguire la simulazione
+
+                const attackersResults = DiscreteSimulation.simulateAttackers(n, m, p); // Simula gli attaccanti
+                const colors = attackersResults.map(() => `rgba(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255}, 0.8)`); // Colori casuali per ogni attaccante
+
+                hw1DrawAttackersChart(attackersResults, colors); // Disegna il grafico delle penetrazioni
+
+                const histogramCanvas = document.getElementById('horizontalHistogram');
+                histogramCanvas.height = Math.max(150, 30 * m); // Imposta l'altezza dell'istogramma in base al numero di attaccanti
+                const histogramCtx = histogramCanvas.getContext('2d');
+                hw1DrawHorizontalHistogram(histogramCtx, attackersResults, histogramCanvas.width, histogramCanvas.height, colors); // Disegna l'istogramma orizzontale
+
+                // Calcola e mostra il numero medio di successi
+                const totalSuccesses = attackersResults.flat().reduce((acc, val) => acc + val, 0);
+                const averageSuccesses = totalSuccesses / m;
+                document.getElementById('averageSuccessLabel').textContent = `Average Successes: ${averageSuccesses.toFixed(2)}`;
+
+            } else if (simulationType === 'randomWalk') {
+
+                const n = parseInt(document.getElementById('numServers').value);
+                const m = parseInt(document.getElementById('numAttackers').value);
+                const p_j = parseFloat(document.getElementById('jumpProb').value);
+
+                if (!validateInputs(n, m, p_j)) return;
+
+                attackersResults = RandomWalkSimulation.simulateAttackers(n, m, p_j);
+                colors = attackersResults.map(() => `rgba(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255}, 0.8)`);
+
+                currentStep = 1;
+
+                hw2DrawAttackersChart(attackersResults, colors);
+
+                const histogramCanvas = document.getElementById('horizontalHistogram2');
+                histogramCanvas.height = Math.max(150, 30 * m);
+                const histogramCtx = histogramCanvas.getContext('2d');
+                hw2DrawHorizontalHistogram(histogramCtx, attackersResults, histogramCanvas.width, histogramCanvas.height, colors, currentStep);
+
+                hw2DrawFrequencyChart(attackersResults, currentStep);
+
+                const totalSuccesses = attackersResults.flat().filter(x => x > 0).length;
+                const averageSuccesses = totalSuccesses / m;
+                document.getElementById('averageSuccessLabel2').textContent = `Average Successes: ${averageSuccesses.toFixed(2)}`;
+
+                const{ meanTotal, varianceTotal } = RandomWalkSimulation.calculateMeanVariance(attackersResults);
+
+                // Mostra media e varianza
+                document.getElementById('meanDisplay').textContent = `Mean: ${meanTotal[currentStep - 1].toFixed(2)}`;
+                document.getElementById('varianceDisplay').textContent = `Variance: ${varianceTotal[currentStep - 1].toFixed(2)}`;
+
+                // Attiva il pulsante "next Step"
+                document.getElementById('advanceTime').disabled = false;
+
+            } else if (simulationType === 'continuousTime') {
+
+                const n = parseInt(document.getElementById('timeIntervals').value); // Numero di intervalli di tempo
+                const m = parseInt(document.getElementById('numAttackers').value); // Numero di attaccanti
+                const lambda = parseFloat(document.getElementById('lambda').value); // Attack rate
+                // Controlla se i valori di input sono validi
+                if (!validateInputs(n, m, lambda)) return;
+
+                attackersResults = ContinuousTimeSimulation.simulateAttackers(n, m, lambda); // Simula gli attaccanti
+                colors = attackersResults.map(() => `rgba(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255}, 0.8)`); // Assegna colori casuali agli attaccanti
+
+                const { mean, variance, averageSuccess } = calculateStats(attackersResults, n);
+                document.getElementById("averageSuccessLabel3").innerText = `Average Success: ${averageSuccess.toFixed(2)}`; // Mostra il successo medio
+                document.getElementById("meanDisplay3").innerText = `Mean: ${mean.toFixed(2)}`; // Mostra la media
+                document.getElementById("varianceDisplay3").innerText = `Variance: ${variance.toFixed(2)}`; // Mostra la varianza
+
+                hw3DrawAttackersChart(attackersResults, colors); // Disegna il grafico delle posizioni degli attaccanti
+                hw3DrawDistributionChart(attackersResults); // Disegna il grafico della distribuzione delle posizioni finali
+
+            } else if (simulationType === 'wienerProcess') {
+
+                const n = parseInt(document.getElementById('numServers').value); // Ottiene il numero di server
+                const m = parseInt(document.getElementById('numAttackers').value); // Ottiene il numero di attaccanti
+                const p = parseFloat(document.getElementById('penetrationProb').value); // Ottiene la probabilità di penetrazione
+                const steps = parseInt(document.getElementById('numSteps').value); // Ottiene il numero di passi della simulazione
+
+                const wienerProcessSimulation = new WienerProcessSimulation(n, m, p, steps); // Crea una nuova simulazione con i parametri specificati
+                const { penetrationsList, attackersResults } = wienerProcessSimulation.simulateAttackers(); // Simula gli attaccanti
+
+                // Calcola la media e la varianza delle penetrazioni
+                const mean = WienerProcessSimulation.calculateMean(penetrationsList);
+                const variance = WienerProcessSimulation.calculateVariance(penetrationsList, mean);
+
+                // Mostra i risultati nella pagina
+                WienerProcessSimulation.displayResults(mean, variance);
+
+                // Disegna il grafico degli attaccanti
+                WienerProcessSimulation.drawAttackersChart(attackersResults);
+
+                // Disegna il grafico della simulazione
+                WienerProcessSimulation.plotSimulation(penetrationsList);
+            }
+        }
+
+        // Funzione per aggiornare i grafici allo step successivo
+        function advanceTime() {
+            if (currentStep >= maxSteps) return;
+
+            currentStep++;
+
+            hw2DrawAttackersChart(attackersResults, colors);
+
+            const histogramCanvas = document.getElementById('horizontalHistogram2');
+            const histogramCtx = histogramCanvas.getContext('2d');
+            hw2DrawHorizontalHistogram(histogramCtx, attackersResults, histogramCanvas.width, histogramCanvas.height, colors, currentStep);
+
+            hw2DrawDistributionChart(attackersResults, currentStep, colors);
+            hw2DrawFrequencyChart(attackersResults, currentStep);
+
+            const{ meanTotal, varianceTotal } = RandomWalkSimulation.calculateMeanVariance(attackersResults);
+
+            // Mostra media e varianza
+            document.getElementById('meanDisplay').textContent = `Mean: ${meanTotal[currentStep - 1].toFixed(2)}`;
+            document.getElementById('varianceDisplay').textContent = `Variance: ${varianceTotal[currentStep - 1].toFixed(2)}`;
+
+        }
+
+        // Aggiunge un listener al pulsante per eseguire la simulazione quando viene cliccato
+        document.getElementById('runSimulation').addEventListener('click', runSimulation);
+
+        document.getElementById('advanceTime').addEventListener('click', advanceTime);
+
+        document.getElementById('simulationType').addEventListener('change', function() {
+            const selectedSimulation = this.value;
+            document.querySelectorAll('.simulationInputs').forEach(inputSection => {
+                inputSection.style.display = inputSection.id === `${selectedSimulation}Inputs` ? 'block' : 'none';
+            });
+        });
+
+    </script>
+</body>
+</html>
